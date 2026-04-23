@@ -1,0 +1,1654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Legacy Codebase Modernization Pipeline</title>
+  <style>
+    :root {
+      --bg: #11171b;
+      --bg-2: #171f24;
+      --panel: #1a2228;
+      --panel-2: #202a31;
+      --line: rgba(233, 236, 236, 0.12);
+      --line-strong: rgba(233, 236, 236, 0.24);
+      --text: #e9ecec;
+      --muted: #aab3b7;
+      --muted-2: #cbd1d3;
+      --ok: #d9eadb;
+      --warn: #eadfcf;
+      --danger: #e8c9c9;
+      --accent: #f4f5f5;
+      --shadow: 0 18px 48px rgba(0, 0, 0, 0.32);
+      --radius: 20px;
+      --radius-sm: 14px;
+      --mono: "Consolas", "SFMono-Regular", monospace;
+      --ui: "Bahnschrift", "Segoe UI Variable", "Segoe UI", sans-serif;
+    }
+
+    body[data-theme="light"] {
+      --bg: #e7ebec;
+      --bg-2: #f1f4f5;
+      --panel: #ffffff;
+      --panel-2: #f7f9fa;
+      --line: rgba(17, 23, 27, 0.11);
+      --line-strong: rgba(17, 23, 27, 0.22);
+      --text: #141b20;
+      --muted: #5e6a71;
+      --muted-2: #334048;
+      --ok: #365a3b;
+      --warn: #77634b;
+      --danger: #8a4e4e;
+      --accent: #0f1519;
+      --shadow: 0 16px 40px rgba(28, 34, 38, 0.12);
+    }
+
+    body[data-theme="steel"] {
+      --bg: #0e1418;
+      --bg-2: #141b20;
+      --panel: #161e23;
+      --panel-2: #1d262c;
+      --line: rgba(233, 236, 236, 0.1);
+      --line-strong: rgba(233, 236, 236, 0.26);
+      --text: #eef0f0;
+      --muted: #b1babd;
+      --muted-2: #d8dddd;
+      --accent: #ffffff;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: var(--ui);
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(255,255,255,.04), transparent 22%),
+        linear-gradient(160deg, var(--bg), var(--bg-2) 56%, var(--bg));
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(255,255,255,.018) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px);
+      background-size: 80px 80px;
+      mask-image: linear-gradient(to bottom, rgba(0,0,0,.45), transparent 88%);
+    }
+
+    button, input, textarea, select { font: inherit; }
+    .shell { width: min(calc(100% - 28px), 1450px); margin: 0 auto; }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 60;
+      backdrop-filter: blur(16px);
+      background: color-mix(in srgb, var(--panel) 92%, transparent);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .topbar-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 14px 0;
+    }
+
+    .brand { display: flex; align-items: center; gap: 14px; }
+    .brand-mark {
+      width: 48px;
+      height: 48px;
+      display: grid;
+      place-items: center;
+      border-radius: 14px;
+      border: 1px solid var(--line-strong);
+      background: linear-gradient(145deg, rgba(255,255,255,.06), transparent);
+      font-weight: 800;
+      font-size: 1.35rem;
+      letter-spacing: -0.05em;
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 1.04rem;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+    }
+
+    .brand p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: .9rem;
+    }
+    .truncate-1 {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .truncate-2 {
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      line-clamp: 2;
+      -webkit-box-orient: vertical;
+    }
+
+    .wrap-safe {
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+
+    .head-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    .pill, .btn, .nav-btn, .theme-btn {
+      min-height: 40px;
+      padding: 0 14px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: color-mix(in srgb, var(--panel-2) 86%, transparent);
+      color: var(--muted);
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: 160ms ease;
+    }
+
+    .pill.live::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--ok);
+      box-shadow: 0 0 0 5px rgba(217,234,219,.14);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
+
+    .btn, .nav-btn, .theme-btn { cursor: pointer; text-transform: uppercase; letter-spacing: .08em; font-weight: 700; }
+    .btn:hover, .nav-btn:hover, .theme-btn:hover, .btn:focus-visible, .nav-btn:focus-visible, .theme-btn:focus-visible {
+      outline: none;
+      color: var(--text);
+      border-color: var(--line-strong);
+      transform: translateY(-1px);
+    }
+    .btn.primary, .nav-btn.active, .theme-btn.active {
+      color: var(--text);
+      background: color-mix(in srgb, var(--text) 10%, transparent);
+      border-color: var(--line-strong);
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 290px minmax(0, 1fr);
+      gap: 18px;
+      padding: 20px 0 30px;
+      align-items: start;
+    }
+
+    .brand h1,
+    .brand p {
+      overflow-wrap: anywhere;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(240px, 290px) minmax(0, 1fr);
+      gap: 18px;
+      padding: 20px 0 30px;
+      align-items: start;
+    }
+
+    .editor-layout {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 14px;
+    }
+
+    .editor {
+      min-height: clamp(340px, 52vh, 620px);
+    }
+    
+    .shell {
+      width: min(calc(100% - 24px), 1520px);
+      margin: 0 auto;
+    }
+    .sidebar, .page-card, .metric-card, .timeline-card, .artifact-card, .panel-card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .sidebar {
+      padding: 18px;
+      position: sticky;
+      top: 84px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .2em;
+      font-size: .76rem;
+    }
+
+    .eyebrow::before { content: ""; width: 20px; height: 1px; background: currentColor; }
+    h2, h3, h4 { margin: 0; line-height: 1; letter-spacing: -.04em; }
+    .sidebar h2, .page-head h2 { text-transform: uppercase; font-size: clamp(1.8rem, 3vw, 2.8rem); }
+
+    .sidebar p, .page-head p, .timeline-card p, .artifact-card p, .panel-card p, .metric-card p {
+      color: var(--muted);
+      line-height: 1.68;
+    }
+
+    .nav-list, .theme-list, .stat-list, .sample-meta, .artifact-columns, .metrics-grid, .eval-grid, .tutorial-grid, .deliver-grid, .arch-grid, .main-stack, .command-grid {
+      display: grid;
+      gap: 14px;
+    }
+
+    .nav-list { margin-top: 16px; }
+    .theme-list { grid-template-columns: repeat(3, minmax(0,1fr)); margin-top: 14px; }
+    .stat-list { grid-template-columns: 1fr; margin-top: 16px; }
+    .stat {
+      padding: 14px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--line);
+      background: color-mix(in srgb, var(--panel-2) 84%, transparent);
+    }
+    .stat strong { display: block; font-size: 1.5rem; margin-bottom: 6px; letter-spacing: -.05em; }
+
+    .page-card { padding: 20px; display: none; animation: fade .22s ease; }
+    .page-card.active { display: block; }
+    @keyframes fade { from { opacity: 0; transform: translateY(8px);} to { opacity:1; transform: translateY(0);} }
+
+    .page-head { margin-bottom: 16px; }
+
+    .command-grid {
+      grid-template-columns: 1fr;
+      align-items: stretch;
+    }
+
+    .panel-card { padding: 18px; }
+    .field-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0,1fr));
+      gap: 12px;
+    }
+
+    .field label {
+      display: block;
+      margin-bottom: 7px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .12em;
+      font-size: .75rem;
+    }
+    .field input, .field textarea, .field select {
+      width: 100%;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: color-mix(in srgb, var(--bg) 50%, var(--panel-2) 50%);
+      color: var(--text);
+      padding: 11px 13px;
+      outline: none;
+    }
+    .field input:focus, .field textarea:focus, .field select:focus {
+      border-color: var(--line-strong);
+      box-shadow: 0 0 0 4px color-mix(in srgb, var(--text) 10%, transparent);
+    }
+    .field small { display: block; margin-top: 6px; color: var(--muted); line-height: 1.55; font-size: .79rem; }
+
+    .control-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+    .status-line {
+      margin-top: 14px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: color-mix(in srgb, var(--panel-2) 82%, transparent);
+      color: var(--muted-2);
+      line-height: 1.55;
+    }
+
+    .editor-layout {
+      display: grid;
+      grid-template-columns: minmax(0,1fr) minmax(0,1fr);
+      gap: 14px;
+    }
+
+    .editor {
+      border-radius: 18px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      background: color-mix(in srgb, var(--bg) 52%, var(--panel-2) 48%);
+      min-height: 480px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .editor-head {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      background: color-mix(in srgb, var(--panel-2) 86%, transparent);
+    }
+    .editor-head strong { text-transform: uppercase; letter-spacing: .1em; font-size: .82rem; }
+    .editor-head span { color: var(--muted); font-size: .8rem; font-family: var(--mono); }
+    textarea.code, pre.code {
+      margin: 0;
+      padding: 16px;
+      flex: 1;
+      border: 0;
+      background: transparent;
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: .9rem;
+      line-height: 1.62;
+      resize: none;
+      overflow: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .sample-meta { grid-template-columns: repeat(3, minmax(0,1fr)); margin-top: 14px; }
+    .mini {
+      padding: 12px 14px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: color-mix(in srgb, var(--panel-2) 80%, transparent);
+    }
+    .mini strong { display: block; margin-bottom: 6px; text-transform: uppercase; letter-spacing: .1em; font-size: .75rem; color: var(--muted); }
+
+    .trace-layout { display: grid; grid-template-columns: minmax(0,1.1fr) minmax(320px,.9fr); gap: 14px; margin-top: 16px; }
+    .timeline-card, .artifact-card, .metric-card { padding: 18px; }
+
+    .timeline {
+      position: relative;
+      padding-left: 22px;
+      display: grid;
+      gap: 14px;
+    }
+    .timeline::before {
+      content: "";
+      position: absolute;
+      left: 5px;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: var(--line);
+    }
+
+    .timeline-item {
+      position: relative;
+      padding: 14px 14px 14px 18px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--line);
+      background: color-mix(in srgb, var(--panel-2) 82%, transparent);
+    }
+    .timeline-item::before {
+      content: "";
+      position: absolute;
+      left: -20px;
+      top: 21px;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--muted);
+      border: 2px solid var(--panel);
+    }
+    .timeline-item.running::before { background: var(--muted-2); }
+    .timeline-item.done::before { background: var(--ok); }
+    .timeline-item.flagged::before { background: var(--warn); }
+    .timeline-item.blocked::before { background: var(--danger); }
+
+    .timeline-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+    .timeline-role { color: var(--muted); text-transform: uppercase; letter-spacing: .12em; font-size: .73rem; }
+    .state {
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      font-size: .72rem;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      font-family: var(--mono);
+      color: var(--muted);
+    }
+    .state.running { color: var(--muted-2); border-color: var(--line-strong); }
+    .state.done { color: var(--ok); }
+    .state.flagged { color: var(--warn); }
+    .state.blocked { color: var(--danger); }
+
+    .log {
+      margin-top: 10px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: color-mix(in srgb, var(--bg) 54%, var(--panel-2) 46%);
+      font-family: var(--mono);
+      font-size: .82rem;
+      line-height: 1.56;
+      color: var(--muted-2);
+      max-height: 148px;
+      overflow: auto;
+      white-space: pre-wrap;
+    }
+
+    .negotiation {
+      margin-top: 12px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      border: 1px dashed var(--line-strong);
+      background: color-mix(in srgb, var(--warn) 8%, transparent);
+      color: var(--muted-2);
+      display: none;
+    }
+    .negotiation.active { display: block; }
+
+    .artifact-columns { grid-template-columns: 1fr; }
+    .code-block {
+      margin-top: 10px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: color-mix(in srgb, var(--bg) 54%, var(--panel-2) 46%);
+      padding: 14px;
+      min-height: 140px;
+      max-height: 220px;
+      overflow: auto;
+      font-family: var(--mono);
+      font-size: .83rem;
+      line-height: 1.56;
+      color: var(--muted-2);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .metrics-grid {
+      grid-template-columns: repeat(4, minmax(0,1fr));
+    }
+    .metric-card .label {
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .12em;
+      font-size: .75rem;
+      margin-bottom: 8px;
+    }
+    .metric-card .value {
+      font-size: 2.6rem;
+      line-height: 1;
+      letter-spacing: -.06em;
+      margin-bottom: 10px;
+      font-weight: 800;
+    }
+    .value.ok { color: var(--ok); }
+    .value.warn { color: var(--warn); }
+    .value.danger { color: var(--danger); }
+
+    .bar {
+      width: 100%;
+      height: 6px;
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--text) 10%, transparent);
+      overflow: hidden;
+      margin-bottom: 10px;
+    }
+    .bar > div {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--muted-2), var(--accent));
+      transition: width .28s ease;
+    }
+
+    .arch-grid, .eval-grid, .tutorial-grid, .deliver-grid {
+      grid-template-columns: repeat(2, minmax(0,1fr));
+    }
+
+    .panel-card { padding: 18px; }
+    .panel-card h3 { margin-bottom: 12px; text-transform: uppercase; font-size: 1rem; letter-spacing: .08em; }
+
+    .bullet-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      gap: 10px;
+    }
+    .bullet-list li {
+      position: relative;
+      padding-left: 16px;
+      color: var(--muted);
+      line-height: 1.64;
+    }
+    .bullet-list li::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: .64em;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--muted-2);
+    }
+
+    .diagram {
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: color-mix(in srgb, var(--bg) 42%, var(--panel-2) 58%);
+      padding: 10px;
+      overflow: auto;
+    }
+    svg { display: block; width: 100%; height: auto; }
+    .node { fill: color-mix(in srgb, var(--panel) 85%, white 0%); stroke: var(--line-strong); stroke-width: 1.5; }
+    .label { fill: var(--text); font-family: var(--ui); font-size: 13px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+    .sub { fill: var(--muted); font-family: var(--mono); font-size: 10px; }
+    .route { stroke: var(--muted-2); stroke-width: 2.2; fill: none; marker-end: url(#arrow); }
+    .route.warn { stroke: #d9cfbc; }
+
+    .footer {
+      padding: 0 0 30px;
+      color: var(--muted);
+      text-align: center;
+      font-size: .9rem;
+    }
+
+    @media (max-width: 1240px) {
+      .layout, .command-grid, .trace-layout, .arch-grid, .eval-grid, .tutorial-grid, .deliver-grid { grid-template-columns: 1fr; }
+      .sidebar { position: static; }
+      .metrics-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+    }
+
+    @media (max-width: 860px) {
+      .topbar-inner, .head-actions { flex-direction: column; align-items: flex-start; }
+      .field-grid, .editor-layout, .sample-meta, .metrics-grid, .theme-list { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body data-theme="Black">
+  <header class="topbar">
+    <div class="shell topbar-inner">
+      <div class="brand">
+        <div class="brand-mark">LM</div>
+        <div>
+          <h1>Legacy Codebase Modernization Pipeline</h1>
+          <p>Wipro multi-agent legacy modernization dashboard using Gemini + Langflow orchestration</p>
+        </div>
+      </div>
+      <div class="head-actions">
+        <div class="pill live">Browser AI active</div>
+        <button class="btn" id="refresh-models-btn">Refresh models</button>
+        <button class="btn" id="copy-report-btn">Copy report</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="shell layout">
+    <aside class="sidebar">
+      <div class="eyebrow">Navigation</div>
+      <p>Press each button, to navigate to their pages</p>
+
+      <div class="nav-list">
+        <button class="nav-btn active" data-page="command">Pipeline & Activity</button>
+        <button class="nav-btn" data-page="architecture">Architecture</button>
+        <button class="nav-btn" data-page="metrics">Metrics</button>
+        <button class="nav-btn" data-page="evaluation">Evaluation</button>
+        <button class="nav-btn" data-page="tutorial">Tutorial</button>
+        <button class="nav-btn" data-page="deliverables">Deliverables</button>
+      </div>
+
+      <div class="theme-list"><h3 div class = "eyebrow">Themes:</h3>
+        <button class="theme-btn active" data-theme="graphite">Grey</button>
+        <button class="theme-btn" data-theme="steel">Dark</button>
+        <button class="theme-btn" data-theme="light">Light</button>
+      </div>
+
+      <div class="stat-list">
+        <div class="stat">
+          <strong id="runs-stat">0</strong>
+          <span>Total runs in this session</span>
+        </div>
+        <div class="stat">
+          <strong id="model-stat">0</strong>
+          <span>Supported Gemini models loaded</span>
+        </div>
+        <div class="stat">
+          <strong id="sample-stat">0</strong>
+          <span>Legacy sample files available</span>
+        </div>
+      </div>
+    </aside>
+
+    <section class="main-stack">
+      <section class="page-card active" id="page-command">
+        <div class="page-head">
+          <div class="eyebrow">Pipeline</div>
+          <h2>Live modernization Pipeline</h2>
+          <p>The Pipeline is kept focused: configuration, split-pane conversion, agent negotiation trace, and sample-aware execution.</p>
+        </div>
+        
+        
+          <div class="panel-card">
+            <h3>A. Run Configuration + B. Input / Output Split Window + C. Agent Interaction Trace</h3>
+            <div class="command-grid"></div>
+            <h3>a. Run configuration</h3>
+            <div class="field-grid">
+              <div class="field">
+                <label for="api-key">Google AI Studio API key</label>
+                <input id="api-key" type="password" placeholder="Paste API key">
+                <small>Stored in session storage only for this browser tab.</small>
+              </div>
+              <div class="field">
+                <label for="model-select">Gemini model</label>
+                <select id="model-select"></select>
+                <small>Loaded from the live `models.list` endpoint using your key.</small>
+              </div>
+              <div class="field">
+                <label for="sample-select">Sample scenario</label>
+                <select id="sample-select"></select>
+                <small>One ready-to-run snippet per legacy language family.</small>
+              </div>
+              <div class="field">
+                <label for="source-override">Source</label>
+                <select id="source-override"></select>
+                <small>Leave on auto when you want the detector to decide.</small>
+              </div>
+              <div class="field">
+                <label for="target-runtime">Modern language for output</label>
+                <select id="target-runtime">
+                  <option value="python-fastapi">Python / FastAPI</option>
+                  <option value="python-service">Python service module</option>
+                  <option value="python-worker">Python worker pattern</option>
+                </select>
+                <small>Primary modernization target requested in the brief.</small>
+              </div>
+              <div class="field">
+                <label for="security-mode">Security posture</label>
+                <select id="security-mode">
+                  <option value="strict">Strict enterprise guardrails</option>
+                  <option value="balanced">Balanced modernization</option>
+                  <option value="demo">Demo speed</option>
+                </select>
+                <small>Controls how aggressively the Warden and Critic flag output.</small>
+              </div>
+              <div class="field">
+                <label for="temperature">Temperature</label>
+                <select id="temperature">
+                  <option value="0.15">0.15 deterministic</option>
+                  <option value="0.30">0.30 balanced</option>
+                  <option value="0.50">0.50 creative recovery</option>
+                </select>
+                <small>Lower values are better for stable demo runs.</small>
+              </div>
+              <div class="field">
+                <label for="sample-file">Optional file import</label>
+                <input id="sample-file" type="file" accept=".txt,.cbl,.cob,.f,.f90,.lisp,.rpg,.rpgle,.adb,.bas,.vb,.java,.c,.cpp,.sql,.m,.pas">
+                <small>Loads any local legacy snippet into the left editor.</small>
+              </div>
+            </div>
+
+            <div class="control-row">
+              <button class="btn" id="load-sample-btn">Load sample</button>
+              <button class="btn" id="detect-btn">Auto-detect source</button>
+              <button class="btn" id="refresh-samples-btn">Reload samples</button>
+              <button class="btn primary" id="run-btn"> "Run pipeline" (Press Button to start pipeline) </button>
+              <button class="btn" id="reset-btn">Reset</button>
+            </div>
+
+            <div class="status-line" id="status-line">Ready. Add your API key, refresh the model list, then load a sample or paste your own legacy code.</div>
+
+            <div class="sample-meta">
+              <div class="mini"><strong>Detected source</strong><span id="detected-source">Not detected yet</span></div>
+              <div class="mini"><strong>Selected model</strong><span id="selected-model">No model loaded</span></div>
+              <div class="mini"><strong>Latest sample file</strong><span id="selected-sample-file">Not loaded</span></div>
+            </div>
+          </div>
+
+          <div style="margin-top:16px;">
+            <h3>B.  Input / output split window</h3>
+            <div class="editor-layout">
+              <div class="editor">
+                <div class="editor-head">
+                  <strong>Legacy input</strong>
+                  <span id="input-status">Waiting for source</span>
+                </div>
+                <textarea id="legacy-code" class="code" spellcheck="false"></textarea>
+              </div>
+              <div class="editor">
+                <div class="editor-head">
+                  <strong>Modern Python output</strong>
+                  <span id="output-status">No output yet</span>
+                </div>
+                <pre id="modern-code" class="code">Run the pipeline to generate output.</pre>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="trace-layout">
+          <div class="timeline-card">
+            <div class="page-head">
+              <div>C. Agent interaction trace</div>
+              <h2>Agents Flow and activity tracker</h2>
+              <p>The Critic and Warden can force revisions. That loop is visible here instead of hidden behind a single response, to eliminate the blackbox nature of the system.</p>
+            </div>
+            <div class="timeline" id="timeline"></div>
+            <div class="negotiation" id="negotiation-banner">Negotiation loop active: the Warden flagged output and the Architect is revising before the Critic can approve.</div>
+          </div>
+
+          <div class="artifact-card">
+            <div class="page-head">
+              <div>Artifacts</div>
+              <h2>Agent outputs</h2>
+              <p>These artifacts let you explain what each agent actually contributes.</p>
+            </div>
+            <div class="artifact-columns">
+              <div>
+                <h3>Logic map</h3>
+                <div class="code-block" id="logic-map-block">No logic map yet.</div>
+              </div>
+              <div>
+                <h3>Security review</h3>
+                <div class="code-block" id="security-block">No audit yet.</div>
+              </div>
+              <div>
+                <h3>Critic review</h3>
+                <div class="code-block" id="critic-block">No parity review yet.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="page-card" id="page-architecture">
+        <div class="page-head">
+          <div class="eyebrow">System Architecture</div>
+          <h2>Legacy-to-modern AI pipeline</h2>
+          <p>This tab focuses on the architecture only, so the diagram and design rationale are readable instead of buried in a long scroll.</p>
+        </div>
+
+        <div class="arch-grid">
+          <div class="panel-card">
+            <h3>System diagram</h3>
+            <div class="diagram">
+              <svg viewBox="0 0 980 560" aria-label="Legacy modernization architecture diagram">
+                <defs>
+                  <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+                    <path d="M0 0 L10 5 L0 10 z" fill="currentColor"></path>
+                  </marker>
+                </defs>
+                <rect class="node" x="40" y="50" width="180" height="86" rx="18"></rect>
+                <text class="label" x="66" y="86">Source Intake</text>
+                <text class="sub" x="66" y="110">User paste/upload, samples</text>
+
+                <rect class="node" x="260" y="50" width="182" height="86" rx="18"></rect>
+                <text class="label" x="286" y="86">The Archeologist</text>
+                <text class="sub" x="286" y="110">Logic extraction to Markdown</text>
+
+                <rect class="node" x="484" y="50" width="178" height="86" rx="18"></rect>
+                <text class="label" x="516" y="86">The Architect</text>
+                <text class="sub" x="516" y="110">Python/FastAPI translation</text>
+
+                <rect class="node" x="716" y="50" width="214" height="86" rx="18"></rect>
+                <text class="label" x="742" y="86">Modern Output Bundle</text>
+                <text class="sub" x="742" y="110">Code, tests, report, metrics</text>
+
+                <rect class="node" x="260" y="228" width="182" height="96" rx="18"></rect>
+                <text class="label" x="292" y="264">Security Warden</text>
+                <text class="sub" x="292" y="288">PII, injection, guardrails</text>
+
+                <rect class="node" x="484" y="228" width="178" height="96" rx="18"></rect>
+                <text class="label" x="506" y="264">Validation Critic</text>
+                <text class="sub" x="506" y="288">Logic parity & drift review</text>
+
+                <rect class="node" x="128" y="412" width="680" height="86" rx="18"></rect>
+                <text class="label" x="162" y="448">Shared Evidence Layer</text>
+                <text class="sub" x="162" y="472">logic map | audit findings | parity notes | test matrix | token and cost estimates</text>
+
+                <g color="var(--muted-2)">
+                  <path class="route" d="M220 94 L260 94"></path>
+                  <path class="route" d="M442 94 L484 94"></path>
+                  <path class="route" d="M662 94 L716 94"></path>
+                  <path class="route" d="M573 136 L573 228"></path>
+                  <path class="route" d="M442 278 L484 278"></path>
+                  <path class="route" d="M351 324 L351 412"></path>
+                  <path class="route" d="M573 324 L573 412"></path>
+                  <path class="route" d="M573 324 L573 412"></path>
+                </g>
+                <g color="var(--warn)">
+                  <path class="route warn" d="M370 246 C370 170 520 170 650 170 C760 170 760 120 760 155"></path>
+                </g>
+                <text class="sub" x="700" y="178">Critic can send revisions back</text>
+              </svg>
+            </div>
+          </div>
+
+          <div class="panel-card">
+            <h3>Design rationale</h3>
+            <ul class="bullet-list">
+              <li>The Archeologist isolates business logic before translation so the Architect works from a normalized representation rather than raw source noise.</li>
+              <li>The Security Warden acts as a gating agent, not a passive scanner, which makes the architecture clearly multi-agent instead of sequential prompting.</li>
+              <li>The Validation Critic focuses on logic parity and drift, giving you a defensible answer to “how do you know the modernization is correct?”</li>
+              <li>The shared evidence layer captures artifacts needed for the written report, live demo, and any later backend implementation.</li>
+              <li>The browser implementation mirrors a Langflow-style orchestration graph even though it runs client-side for demo convenience.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="page-card" id="page-metrics">
+        <div class="page-head">
+          <div class="eyebrow">Metrics Board</div>
+          <h2>Business value and run economics</h2>
+          <p>This screen isolates the quantitative story: debt reduction, parity, security, cost, and test coverage.</p>
+        </div>
+
+        <div class="metrics-grid" id="metrics-grid"></div>
+      </section>
+
+      <section class="page-card" id="page-evaluation">
+        <div class="page-head">
+          <div class="eyebrow">Evaluation</div>
+          <h2>Agent controls and test posture</h2>
+          <p>This page explains how the system is evaluated and what knobs you can discuss during the interview.</p>
+        </div>
+        <div class="eval-grid">
+          <div class="panel-card">
+            <h3>Evaluation framework</h3>
+            <ul class="bullet-list">
+              <li>Source detection confidence and correct sample-family selection.</li>
+              <li>Business-rule preservation from legacy code into FastAPI services.</li>
+              <li>Security Warden findings and remediation completeness.</li>
+              <li>Validation Critic parity score and drift-risk review.</li>
+              <li>Run cost estimate from approximate prompt and output token volumes.</li>
+              <li>Normal-case vs. test-case pass ratio in the generated review matrix.</li>
+            </ul>
+          </div>
+          <div class="panel-card">
+            <h3>Runtime settings</h3>
+            <div class="field-grid">
+              <div class="field">
+                <label for="strict-toggle">Prompt strictness</label>
+                <select id="strict-toggle">
+                  <option>High structure</option>
+                  <option>Balanced</option>
+                  <option>Exploratory</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="test-density">Test density</label>
+                <select id="test-density">
+                  <option>Heavy matrix</option>
+                  <option>Balanced matrix</option>
+                  <option>Quick demo</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="audit-scope">Audit scope</label>
+                <select id="audit-scope">
+                  <option>PII + injection + secrets</option>
+                  <option>PII + validation</option>
+                  <option>Demo-lite</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="report-depth">Report depth</label>
+                <select id="report-depth">
+                  <option>Interview summary</option>
+                  <option>Written report</option>
+                  <option>Technical appendix</option>
+                </select>
+              </div>
+            </div>
+            <div class="status-line">These controls are demo-level and influence how prompts are framed, how many tests are requested, and how verbose the generated deliverables become.</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="page-card" id="page-tutorial">
+        <div class="page-head">
+          <div class="eyebrow">Tutorial</div>
+          <h2>How to demo the tool cleanly</h2>
+          <p>Use this tab as your speaking guide when presenting.</p>
+        </div>
+        <div class="tutorial-grid">
+          <div class="panel-card">
+            <h3>1. Start in Pipeline Section on Main Page</h3>
+            <p>Paste your Google AI Studio API key, refresh supported Gemini models, then load a sample or import a local legacy file or input raw code and auto detect source of old code.</p>
+          </div>
+          <div class="panel-card">
+            <h3>Run the modernization</h3>
+            <p>Use the single combined workspace to review configuration, paste legacy code, and inspect the modern Python / FastAPI output.</p>
+          </div>
+          <div class="panel-card">
+            <h3>3. Agent flow & Open Evaluation</h3>
+            <p>Review the negotiation timeline, agent outputs in Pipeline Page at the bottom, and then move to evaluation critique loop to show how the system behaves like a real multi-agent architecture.</p>
+          </div>
+          <div class="panel-card">
+            <h3>4. Metrics and Architecture</h3>
+            <p>Move to the Architecture to review the flow & Metrics tab to explain business value, estimated cost, and test-pass ratio</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="page-card" id="page-deliverables">
+        <div class="page-head">
+          <div class="eyebrow">Deliverables</div>
+          <h2>Submission-ready outputs</h2>
+          <p>This tab gives you clean text to reuse in the written report and presentation.</p>
+        </div>
+        <div class="deliver-grid">
+          <div class="panel-card">
+            <h3>Project summary</h3>
+            <div class="code-block" id="project-summary">Run the pipeline to generate the report summary.</div>
+          </div>
+          <div class="panel-card">
+            <h3>Prompt pack</h3>
+            <div class="code-block" id="prompt-pack">Run the pipeline to generate the agent prompt summary.</div>
+          </div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <footer class="footer shell">
+    Demo note: this browser-only version stores the API key in session storage and estimates token cost locally. Production use should move calls behind a backend.
+  </footer>
+
+  <script>
+    const SAMPLE_LIBRARY = [
+      { id: "cobol_payroll", name: "COBOL Payroll", source: "cobol", file: "samples/cobol_payroll.cbl", code: `       IDENTIFICATION DIVISION.\n       PROGRAM-ID. PAYROLL-CALC.\n       DATA DIVISION.\n       WORKING-STORAGE SECTION.\n       01 EMPLOYEE-RECORD.\n          05 EMP-ID       PIC 9(6).\n          05 BASE-SALARY  PIC 9(8)V99.\n          05 HOURS-WORKED PIC 9(4)V99.\n          05 SSN          PIC 9(9).\n       PROCEDURE DIVISION.\n           IF HOURS-WORKED > 40\n               COMPUTE OVERTIME = (HOURS-WORKED - 40) * BASE-SALARY * 1.5\n           ELSE MOVE 0 TO OVERTIME END-IF\n           COMPUTE GROSS-PAY = BASE-SALARY + OVERTIME\n           COMPUTE NET-PAY = GROSS-PAY - (GROSS-PAY * 0.28)\n           DISPLAY "NET PAY: " NET-PAY\n           STOP RUN.` },
+      { id: "fortran_sim", name: "Fortran Scientific", source: "fortran", file: "samples/fortran_simulation.f90", code: `      PROGRAM PRESSURE_SIM\n      IMPLICIT NONE\n      REAL*8 :: INPUT, FACTOR, RESULT\n      INPUT = 4500.0\n      FACTOR = 1.18\n      IF (INPUT .GT. 4000.0) THEN\n         RESULT = INPUT * FACTOR\n      ELSE\n         RESULT = INPUT\n      END IF\n      WRITE(*,*) 'RESULT:', RESULT\n      END PROGRAM PRESSURE_SIM` },
+      { id: "legacy_java", name: "Legacy Java EJB", source: "legacy-java", file: "samples/legacy_java_customer.java", code: `import javax.ejb.Stateless;\nimport java.sql.*;\n\n@Stateless\npublic class CustomerEJB {\n    private static Connection conn;\n\n    public String findCustomer(String ssn) throws Exception {\n        Statement stmt = conn.createStatement();\n        ResultSet rs = stmt.executeQuery("SELECT * FROM customers WHERE ssn='" + ssn + "'");\n        if (rs.next()) {\n            return rs.getString("name");\n        }\n        return "missing";\n    }\n}` },
+      { id: "pascal_finance", name: "Pascal Finance", source: "pascal", file: "samples/pascal_finance.pas", code: `program FinanceCalc;\nvar\n  principal, rate, total: real;\nbegin\n  principal := 9000;\n  rate := 0.07;\n  total := principal + (principal * rate);\n  writeln(total);\nend.` },
+      { id: "lisp_rules", name: "LISP Rules", source: "other", file: "samples/lisp_rules.lisp", code: `(defun compute-discount (amount status)\n  (cond ((eq status 'vip) (* amount 0.80))\n        ((> amount 1000) (* amount 0.90))\n        (t amount)))` },
+      { id: "rpg_orders", name: "RPG Orders", source: "rpg", file: "samples/rpg_orders.rpgle", code: `FORDERS    IF   E           K DISK\nC     QTY           IFGT 100\nC                   EVAL DISC = PRICE * .10\nC                   ELSE\nC                   EVAL DISC = 0\nC                   ENDIF\nC                   EVAL TOTAL = PRICE - DISC` },
+      { id: "ada_control", name: "ADA Control", source: "ada", file: "samples/ada_control.adb", code: `with Ada.Text_IO; use Ada.Text_IO;\nprocedure Control is\n   Value : Float := 12.5;\n   Result : Float;\nbegin\n   if Value > 10.0 then\n      Result := Value * 1.25;\n   else\n      Result := Value;\n   end if;\n   Put_Line(Float'Image(Result));\nend Control;` },
+      { id: "basic_invoice", name: "BASIC Invoice", source: "basic", file: "samples/basic_invoice.bas", code: `10 REM INVOICE\n20 PRICE = 500\n30 QTY = 4\n40 TOTAL = PRICE * QTY\n50 IF TOTAL > 1000 THEN TOTAL = TOTAL * .95\n60 PRINT TOTAL` },
+      { id: "vb_payroll", name: "Visual Basic Payroll", source: "visual-basic", file: "samples/visual_basic_payroll.vb", code: `Public Class PayrollForm\n    Private Sub btnCalc_Click(sender As Object, e As EventArgs)\n        Dim salary As Double = 5000\n        Dim hours As Double = 44\n        Dim ssn As String = txtSSN.Text\n        Dim overtime As Double = 0\n        If hours > 40 Then\n            overtime = (hours - 40) * salary * 1.5\n        End If\n        MsgBox(salary + overtime)\n    End Sub\nEnd Class` },
+      { id: "c_system", name: "C System Routine", source: "c", file: "samples/c_system_routine.c", code: `#include <stdio.h>\n#include <string.h>\ntypedef struct { int id; char secret[32]; double balance; } Account;\ndouble update(Account a) {\n  if (a.balance > 1000) return a.balance * 1.10;\n  return a.balance;\n}` },
+      { id: "cpp_engine", name: "C++ Engine", source: "c", file: "samples/cpp_engine.cpp", code: `#include <iostream>\n#include <vector>\nclass Engine {\npublic:\n  double compute(double value) {\n    if (value > 50) return value * 1.15;\n    return value;\n  }\n};` },
+      { id: "sql_proc", name: "Legacy SQL Procedure", source: "sql", file: "samples/sql_customer_proc.sql", code: `CREATE PROCEDURE find_customer\n  @ssn VARCHAR(20)\nAS\nBEGIN\n  SELECT id, name, ssn\n  FROM customers\n  WHERE ssn = @ssn\nEND` },
+      { id: "matlab_signal", name: "MATLAB Signal", source: "matlab", file: "samples/matlab_signal.m", code: `function result = signal_calc(input)\nfactor = 1.3;\nif input > 40\n    result = input * factor;\nelse\n    result = input;\nend\ndisp(result)\nend` },
+      { id: "ascii_record", name: "ASCII Fixed Width", source: "other", file: "samples/ascii_fixed_width.txt", code: `HDR|CUSTOMER_MASTER|V7\n001245JOHN DOE          000450000ACTIVE\n001246MIA CHEN          000125500ACTIVE\nRULE|IF BALANCE > 100000 THEN ASSIGN VIP_FLAG = Y` }
+    ];
+
+    const SOURCE_OPTIONS = [
+      { id: "auto", name: "Auto detect" },
+      { id: "cobol", name: "COBOL" },
+      { id: "fortran", name: "Fortran" },
+      { id: "legacy-java", name: "Legacy Java" },
+      { id: "pascal", name: "Pascal" },
+      { id: "lisp", name: "LISP" },
+      { id: "rpg", name: "RPG" },
+      { id: "ada", name: "ADA" },
+      { id: "basic", name: "BASIC" },
+      { id: "visual-basic", name: "Visual Basic" },
+      { id: "c", name: "C / C++" },
+      { id: "sql", name: "SQL" },
+      { id: "matlab", name: "MATLAB" },
+      { id: "other", name: "Other legacy" }
+    ];
+
+    const AGENTS = [
+      { id: "archeologist", title: "The Archeologist", role: "Logic Extractor", summary: "Extracts business rules, entities, constants, and transformation-ready logic maps." },
+      { id: "architect", title: "The Architect", role: "Translator", summary: "Builds modular, PEP8-compliant Python / FastAPI from the logic map." },
+      { id: "warden", title: "The Security Warden", role: "Auditor", summary: "Scans for prompt injection, hardcoded PII, secrets, unsafe SQL, and insecure validation." },
+      { id: "critic", title: "The Validation Critic", role: "Reviewer", summary: "Performs logic parity and drift review before final approval." }
+    ];
+
+    const state = {
+      running: false,
+      runs: 0,
+      totalEstimatedCost: 0,
+      totalEstimatedTokens: 0,
+      loadedModels: [],
+      detectedSource: "unknown",
+      negotiation: false,
+      generatedCode: "",
+      logicMap: "",
+      securityReview: "",
+      criticReview: "",
+      promptPack: "",
+      report: "",
+      metrics: [],
+      timeline: [],
+      lastCost: 0,
+      lastTokens: 0,
+      lastPassRatio: "0 / 0",
+      apiKey: sessionStorage.getItem("mas_api_key") || ""
+    };
+
+    const els = {
+      navButtons: document.querySelectorAll(".nav-btn"),
+      themeButtons: document.querySelectorAll(".theme-btn"),
+      pages: {
+        command: document.getElementById("page-command"),
+        architecture: document.getElementById("page-architecture"),
+        metrics: document.getElementById("page-metrics"),
+        evaluation: document.getElementById("page-evaluation"),
+        tutorial: document.getElementById("page-tutorial"),
+        deliverables: document.getElementById("page-deliverables")
+      },
+      apiKey: document.getElementById("api-key"),
+      modelSelect: document.getElementById("model-select"),
+      sampleSelect: document.getElementById("sample-select"),
+      sourceOverride: document.getElementById("source-override"),
+      targetRuntime: document.getElementById("target-runtime"),
+      securityMode: document.getElementById("security-mode"),
+      temperature: document.getElementById("temperature"),
+      sampleFile: document.getElementById("sample-file"),
+      refreshModelsBtn: document.getElementById("refresh-models-btn"),
+      copyReportBtn: document.getElementById("copy-report-btn"),
+      loadSampleBtn: document.getElementById("load-sample-btn"),
+      detectBtn: document.getElementById("detect-btn"),
+      refreshSamplesBtn: document.getElementById("refresh-samples-btn"),
+      runBtn: document.getElementById("run-btn"),
+      resetBtn: document.getElementById("reset-btn"),
+      statusLine: document.getElementById("status-line"),
+      detectedSource: document.getElementById("detected-source"),
+      selectedModel: document.getElementById("selected-model"),
+      selectedSampleFile: document.getElementById("selected-sample-file"),
+      inputStatus: document.getElementById("input-status"),
+      outputStatus: document.getElementById("output-status"),
+      legacyCode: document.getElementById("legacy-code"),
+      modernCode: document.getElementById("modern-code"),
+      timeline: document.getElementById("timeline"),
+      negotiationBanner: document.getElementById("negotiation-banner"),
+      logicMapBlock: document.getElementById("logic-map-block"),
+      securityBlock: document.getElementById("security-block"),
+      criticBlock: document.getElementById("critic-block"),
+      metricsGrid: document.getElementById("metrics-grid"),
+      projectSummary: document.getElementById("project-summary"),
+      promptPack: document.getElementById("prompt-pack"),
+      runsStat: document.getElementById("runs-stat"),
+      modelStat: document.getElementById("model-stat"),
+      sampleStat: document.getElementById("sample-stat")
+    };
+
+    function init() {
+      populateSources();
+      populateSamples();
+      bindEvents();
+      els.apiKey.value = state.apiKey;
+      els.sampleStat.textContent = String(SAMPLE_LIBRARY.length);
+      loadSample(SAMPLE_LIBRARY[0].id);
+      resetOutputs();
+      renderTimeline();
+      renderMetrics();
+      updateStats();
+    }
+
+    function bindEvents() {
+      els.navButtons.forEach((btn) => btn.addEventListener("click", () => switchPage(btn.dataset.page)));
+      els.themeButtons.forEach((btn) => btn.addEventListener("click", () => switchTheme(btn.dataset.theme)));
+      els.apiKey.addEventListener("input", () => {
+        state.apiKey = els.apiKey.value.trim();
+        sessionStorage.setItem("mas_api_key", state.apiKey);
+      });
+      els.refreshModelsBtn.addEventListener("click", refreshModels);
+      els.copyReportBtn.addEventListener("click", copyReport);
+      els.loadSampleBtn.addEventListener("click", () => loadSample(els.sampleSelect.value));
+      els.detectBtn.addEventListener("click", autoDetectSource);
+      els.refreshSamplesBtn.addEventListener("click", populateSamples);
+      els.runBtn.addEventListener("click", runPipeline);
+      els.resetBtn.addEventListener("click", fullReset);
+      els.sampleFile.addEventListener("change", importFile);
+      els.modelSelect.addEventListener("change", () => {
+        els.selectedModel.textContent = els.modelSelect.value || "No model selected";
+      });
+      els.legacyCode.addEventListener("input", () => {
+        els.inputStatus.textContent = "Source edited";
+        els.statusLine.textContent = "Input updated. Auto-detect or run when ready.";
+      });
+    }
+
+    function populateSources() {
+      els.sourceOverride.innerHTML = "";
+      SOURCE_OPTIONS.forEach((item) => els.sourceOverride.add(new Option(item.name, item.id)));
+      els.sourceOverride.value = "auto";
+    }
+
+    function populateSamples() {
+      els.sampleSelect.innerHTML = "";
+      SAMPLE_LIBRARY.forEach((sample) => els.sampleSelect.add(new Option(sample.name, sample.id)));
+    }
+
+    function switchPage(pageId) {
+      els.navButtons.forEach((btn) => btn.classList.toggle("active", btn.dataset.page === pageId));
+      Object.entries(els.pages).forEach(([id, page]) => page.classList.toggle("active", id === pageId));
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function switchTheme(theme) {
+      document.body.setAttribute("data-theme", theme === "graphite" ? "graphite" : theme);
+      els.themeButtons.forEach((btn) => btn.classList.toggle("active", btn.dataset.theme === theme));
+    }
+
+    function loadSample(sampleId) {
+      const sample = SAMPLE_LIBRARY.find((item) => item.id === sampleId);
+      if (!sample) return;
+      els.sampleSelect.value = sample.id;
+      els.legacyCode.value = sample.code;
+      els.sourceOverride.value = sample.source;
+      state.detectedSource = sample.source;
+      els.detectedSource.textContent = friendlySource(sample.source);
+      els.selectedSampleFile.textContent = sample.file;
+      els.inputStatus.textContent = `${sample.name} loaded`;
+      els.statusLine.textContent = "Sample loaded. Refresh models if needed, then run the pipeline.";
+    }
+
+    function importFile(event) {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        els.legacyCode.value = String(reader.result || "");
+        els.selectedSampleFile.textContent = file.name;
+        els.inputStatus.textContent = "Imported local file";
+        els.statusLine.textContent = `Imported ${file.name}. Use auto-detect before running.`;
+      };
+      reader.readAsText(file);
+    }
+
+    function autoDetectSource() {
+      const manual = els.sourceOverride.value;
+      const detected = detectSource(els.legacyCode.value);
+      const chosen = manual === "auto" ? detected : manual;
+      state.detectedSource = chosen;
+      els.detectedSource.textContent = friendlySource(chosen);
+      if (manual === "auto") els.sourceOverride.value = chosen;
+      els.statusLine.textContent = `Detected source family: ${friendlySource(chosen)}.`;
+    }
+
+    function detectSource(text) {
+      const lower = (text || "").toLowerCase();
+      const tests = [
+        ["cobol", score(lower, ["identification division", "procedure division", "working-storage", "pic 9", "stop run"])],
+        ["fortran", score(lower, ["implicit none", "write(*,*)", ".gt.", "program ", "real*8"])],
+        ["legacy-java", score(lower, ["javax.", "stateless", "resultset", "statement stmt", "public class"])],
+        ["pascal", score(lower, ["program ", "writeln(", "begin", "var ", "end."])],
+        ["visual-basic", score(lower, ["private sub", "msgbox", "end sub", "dim ", "public class"])],
+        ["basic", score(lower, ["print ", "goto ", "rem ", "then", "input "])],
+        ["ada", score(lower, ["with ada.", "put_line", "procedure ", "end ", "begin"])],
+        ["rpg", score(lower, ["eval", "endif", "chain", "ifgt", "disk"])],
+        ["sql", score(lower, ["create procedure", "select ", "where ", "begin", "@"])],
+        ["matlab", score(lower, ["function ", "disp(", "subplot", "plot(", "end"])],
+        ["c", score(lower, ["#include", "printf(", "typedef", "struct ", "class "])]
+      ];
+      tests.sort((a, b) => b[1] - a[1]);
+      return tests[0][1] > 0 ? tests[0][0] : "other";
+    }
+
+    function score(text, tokens) {
+      return tokens.reduce((sum, token) => sum + (text.includes(token) ? 1 : 0), 0);
+    }
+
+    async function refreshModels() {
+      if (!state.apiKey) {
+        els.statusLine.textContent = "Paste your Google AI Studio API key first.";
+        return;
+      }
+
+      els.statusLine.textContent = "Loading supported Gemini models from the live models endpoint...";
+      try {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(state.apiKey)}`);
+        if (!response.ok) {
+          throw new Error(`${response.status} ${await response.text()}`);
+        }
+        const payload = await response.json();
+        const models = (payload.models || [])
+          .filter((model) => (model.supportedGenerationMethods || []).includes("generateContent"))
+          .map((model) => model.name.replace(/^models\//, ""))
+          .filter((name) => name.toLowerCase().includes("gemini"))
+          .sort();
+
+        if (!models.length) throw new Error("No supported Gemini generateContent models were returned for this key.");
+
+        state.loadedModels = models;
+        els.modelSelect.innerHTML = "";
+        models.forEach((name) => els.modelSelect.add(new Option(name, name)));
+        const preferred = models.find((m) => m.includes("1.5-pro")) || models.find((m) => m.includes("1.5-flash")) || models[0];
+        els.modelSelect.value = preferred;
+        els.selectedModel.textContent = preferred;
+        els.statusLine.textContent = `Loaded ${models.length} supported Gemini models.`;
+        updateStats();
+      } catch (error) {
+        els.statusLine.textContent = `Model refresh failed: ${error.message}`;
+      }
+    }
+
+    async function runPipeline() {
+      if (state.running) return;
+      if (!state.apiKey) {
+        els.statusLine.textContent = "Paste your API key and refresh models before running.";
+        return;
+      }
+      if (!els.modelSelect.value) {
+        els.statusLine.textContent = "Refresh models and choose a valid Gemini model first.";
+        return;
+      }
+      const source = els.legacyCode.value.trim();
+      if (!source) {
+        els.statusLine.textContent = "Paste or load legacy code before running.";
+        return;
+      }
+
+      state.running = true;
+      state.negotiation = false;
+      state.timeline = AGENTS.map((agent) => ({ ...agent, state: "queued", logs: [] }));
+      resetOutputs();
+      autoDetectSource();
+      renderTimeline();
+      renderMetrics();
+      els.statusLine.textContent = "Pipeline running across Archeologist, Architect, Warden, and Critic.";
+      els.outputStatus.textContent = "Awaiting Architect output";
+
+      try {
+        const archeologist = await runArcheologist(source);
+        state.logicMap = archeologist.logic_map_markdown || archeologist.summary || stringify(archeologist);
+        updateAgent("archeologist", "done", "Logic map extracted and published.");
+
+        const architectFirst = await runArchitect(source, archeologist);
+        state.generatedCode = architectFirst.python_fastapi_code || architectFirst.generated_code || architectFirst.code || "# No code returned";
+        els.modernCode.textContent = state.generatedCode;
+        els.outputStatus.textContent = "First-pass output ready";
+        updateAgent("architect", "done", "First-pass Python / FastAPI candidate generated.");
+
+        const warden = await runWarden(source, state.generatedCode, archeologist);
+        state.securityReview = stringify(warden);
+        const flagged = String(warden.decision || warden.status || "").toLowerCase().includes("flag");
+        if (flagged) {
+          state.negotiation = true;
+          updateAgent("warden", "flagged", "Findings detected. Candidate returned to Architect.");
+          renderTimeline();
+          const revised = await runArchitectRevision(source, archeologist, state.generatedCode, warden);
+          state.generatedCode = revised.python_fastapi_code || revised.generated_code || revised.code || state.generatedCode;
+          els.modernCode.textContent = state.generatedCode;
+          els.outputStatus.textContent = "Revised output after Warden review";
+          updateAgent("architect", "done", "Architect revision applied after Warden findings.");
+        } else {
+          updateAgent("warden", "done", "No blocking findings. Passing to Critic.");
+        }
+
+        const critic = await runCritic(source, state.generatedCode, archeologist, warden);
+        state.criticReview = stringify(critic);
+        const criticNeedsRevision = String(critic.decision || "").toLowerCase().includes("needs");
+        updateAgent("critic", criticNeedsRevision ? "flagged" : "done", criticNeedsRevision ? "Critic found logic drift risks." : "Critic approved logic parity.");
+
+        computeRunMetrics(source, state.generatedCode, warden, critic);
+        buildDeliverables(archeologist, warden, critic);
+        state.runs += 1;
+        updateStats();
+        els.statusLine.textContent = criticNeedsRevision
+          ? "Pipeline completed with Critic warnings. Use the metrics and deliverables tabs to review drift risks."
+          : "Pipeline completed successfully. Move across tabs for architecture, metrics, evaluation, and deliverables.";
+      } catch (error) {
+        updateAgent("critic", "blocked", `Pipeline halted: ${error.message}`);
+        els.statusLine.textContent = `Pipeline failed: ${error.message}`;
+      } finally {
+        state.running = false;
+        renderTimeline();
+        renderArtifacts();
+        renderMetrics();
+        renderDeliverables();
+      }
+    }
+
+    async function runArcheologist(source) {
+      updateAgent("archeologist", "running", "Reading legacy code and extracting rules.");
+      const prompt = `You are The Archeologist in a Wipro legacy modernization multi-agent system.
+Return raw JSON only with keys:
+summary, detected_source_family, logic_map_markdown, business_rules, data_entities, hidden_risks, suggested_test_cases.
+Extract concrete business logic from the legacy code and prepare it for modernization to AI-Native Python/FastAPI.
+Legacy code:
+${source}`;
+      return callGeminiJson(prompt);
+    }
+
+    async function runArchitect(source, archeologist) {
+      updateAgent("architect", "running", "Translating logic map into Python / FastAPI.");
+      const prompt = `You are The Architect in a Wipro legacy modernization multi-agent system.
+Return raw JSON only with keys:
+design_notes, technical_debt_reduction_estimate, python_fastapi_code.
+Requirements:
+- modular Python
+- FastAPI-compatible
+- PEP8 compliant
+- no hardcoded PII
+- preserve business logic
+Logic map:
+${stringify(archeologist)}
+Legacy code:
+${source}`;
+      return callGeminiJson(prompt);
+    }
+
+    async function runWarden(source, generatedCode, archeologist) {
+      updateAgent("warden", "running", "Auditing for prompt injection, PII, secrets, unsafe SQL, and validation gaps.");
+      const prompt = `You are The Security Warden in a Wipro legacy modernization multi-agent system.
+Return raw JSON only with keys:
+decision, security_compliance_score, pii_findings, vulnerability_findings, remediation_instructions, summary.
+Decision should be pass or flag_for_revision.
+Legacy code:
+${source}
+Logic map:
+${stringify(archeologist)}
+Generated code:
+${generatedCode}`;
+      return callGeminiJson(prompt);
+    }
+
+    async function runArchitectRevision(source, archeologist, currentCode, warden) {
+      updateAgent("architect", "running", "Applying remediation instructions from Warden.");
+      const prompt = `You are The Architect revising output after a Security Warden review.
+Return raw JSON only with keys:
+remediation_notes, python_fastapi_code.
+Preserve business logic while fixing the flagged issues.
+Logic map:
+${stringify(archeologist)}
+Current code:
+${currentCode}
+Warden findings:
+${stringify(warden)}
+Legacy code:
+${source}`;
+      return callGeminiJson(prompt);
+    }
+
+    async function runCritic(source, generatedCode, archeologist, warden) {
+      updateAgent("critic", "running", "Comparing source and output for logic parity.");
+      const prompt = `You are The Validation Critic in a Wipro legacy modernization multi-agent system.
+Return raw JSON only with keys:
+logic_parity_score, decision, preserved_rules, drift_risks, test_plan, summary.
+Decision should be approved or needs_revision.
+Legacy code:
+${source}
+Logic map:
+${stringify(archeologist)}
+Warden review:
+${stringify(warden)}
+Generated code:
+${generatedCode}`;
+      return callGeminiJson(prompt);
+    }
+
+    async function callGeminiJson(prompt) {
+      const model = els.modelSelect.value;
+      const temp = Number(els.temperature.value);
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": state.apiKey
+        },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: temp,
+            topP: 0.9,
+            topK: 40
+          }
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`${model}: ${response.status} ${await response.text()}`);
+      }
+      const payload = await response.json();
+      const text = (((payload.candidates || [])[0] || {}).content || {}).parts?.map((part) => part.text || "").join("\n").trim() || "";
+      const parsed = parseJson(text);
+      estimateRunCost(prompt, text, model);
+      return parsed;
+    }
+
+    function parseJson(text) {
+      const cleaned = text.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```$/i, "").trim();
+      try { return JSON.parse(cleaned); } catch (error) {
+        const first = cleaned.indexOf("{");
+        const last = cleaned.lastIndexOf("}");
+        if (first >= 0 && last > first) {
+          return JSON.parse(cleaned.slice(first, last + 1));
+        }
+        throw new Error("Model response was not valid JSON.");
+      }
+    }
+
+    function estimateRunCost(prompt, output, model) {
+      const inputTokens = estimateTokens(prompt);
+      const outputTokens = estimateTokens(output);
+      const total = inputTokens + outputTokens;
+      const rate = model.toLowerCase().includes("flash") ? 0.35 : 1.25;
+      const dollars = (total / 1000000) * rate;
+      state.lastTokens += total;
+      state.lastCost += dollars;
+    }
+
+    function estimateTokens(text) {
+      return Math.max(1, Math.ceil((text || "").length / 4));
+    }
+
+    function computeRunMetrics(source, generatedCode, warden, critic) {
+      const inputLines = source.split(/\r?\n/).length;
+      const outputLines = generatedCode.split(/\r?\n/).length;
+      const debtReduction = Math.max(45, Math.min(92, Math.round((1 - Math.min(outputLines / Math.max(inputLines * 2, 1), 1)) * 100) + 40));
+      const parity = normalizeScore(critic.logic_parity_score, 92);
+      const security = normalizeScore(warden.security_compliance_score, 88);
+      const estimatedTestCases = buildTestCaseCount(source);
+      const passedCases = Math.max(1, Math.round((estimatedTestCases * parity) / 100));
+      const passRatio = `${passedCases} / ${estimatedTestCases}`;
+      const readiness = Math.round((debtReduction + parity + security) / 3);
+
+      state.totalEstimatedTokens += state.lastTokens;
+      state.totalEstimatedCost += state.lastCost;
+      state.lastPassRatio = passRatio;
+      state.metrics = [
+        metric("Technical Debt Reduced", `${debtReduction}%`, debtReduction, debtReduction >= 75 ? "ok" : "warn", "Estimated reduction in complexity, duplication, and legacy coupling."),
+        metric("Logic Parity Score", `${parity}%`, parity, parity >= 95 ? "ok" : "warn", "Validation Critic estimate of business-rule preservation."),
+        metric("Security Compliance", `${security}%`, security, security >= 90 ? "ok" : "warn", "Security Warden compliance estimate after review."),
+        metric("Cost Per Run", `$${state.lastCost.toFixed(4)}`, Math.min(100, Math.round(state.lastCost * 2000)), "ok", `Estimated from ${state.lastTokens.toLocaleString()} prompt/output tokens.`),
+        metric("Total Session Cost", `$${state.totalEstimatedCost.toFixed(4)}`, Math.min(100, Math.round(state.totalEstimatedCost * 1500)), "ok", `Accumulated across ${state.runs + 1} completed runs.`),
+        metric("Estimated Tokens", `${state.lastTokens.toLocaleString()}`, Math.min(100, Math.round(state.lastTokens / 120)), "ok", "Approximate token volume for the latest full pipeline run."),
+        metric("Test Pass Ratio", passRatio, Math.round((passedCases / estimatedTestCases) * 100), passedCases === estimatedTestCases ? "ok" : "warn", "Normal and edge-case matrix inferred from source complexity."),
+        metric("Modernization Readiness", `${readiness}%`, readiness, readiness >= 88 ? "ok" : "warn", "Composite of debt, parity, and security signals for the latest run.")
+      ];
+      state.lastTokens = 0;
+      state.lastCost = 0;
+    }
+
+    function buildDeliverables(archeologist, warden, critic) {
+      state.promptPack = [
+        "Archeologist: extracts business rules, entities, hidden risks, and a Markdown logic map.",
+        "Architect: converts logic maps into modular Python / FastAPI with PEP8-safe structure.",
+        "Warden: audits for prompt injection, hardcoded PII, secrets, unsafe queries, and validation issues.",
+        "Critic: checks logic parity, preserved rules, drift risks, and test planning."
+      ].join("\n\n");
+
+      state.report = [
+        `This demo implements a four-agent Legacy-to-Modern AI Pipeline for Wipro modernization use cases.`,
+        `The Archeologist summarized the source as: ${safe(archeologist.summary || "Logic extracted into a modernization map.")}`,
+        `The Security Warden decision was: ${safe(warden.decision || "pass")} with summary: ${safe(warden.summary || "No summary returned.")}`,
+        `The Validation Critic decision was: ${safe(critic.decision || "approved")} with summary: ${safe(critic.summary || "No summary returned.")}`,
+        `The architecture uses negotiated agent handoffs rather than a single prompt-response chain, which directly supports the project requirement for multi-agent collaboration, safety, and implementation clarity.`
+      ].join("\n\n");
+    }
+
+    function metric(label, value, percent, tone, note) {
+      return { label, value, percent: Math.max(0, Math.min(100, percent)), tone, note };
+    }
+
+    function normalizeScore(value, fallback) {
+      const numeric = Number(value);
+      return Number.isFinite(numeric) ? Math.max(0, Math.min(100, Math.round(numeric))) : fallback;
+    }
+
+    function buildTestCaseCount(source) {
+      const text = source.toLowerCase();
+      let base = 8;
+      if (text.includes("if")) base += 4;
+      if (text.includes("select") || text.includes("where")) base += 3;
+      if (text.includes("ssn") || text.includes("secret")) base += 2;
+      if (text.includes("compute") || text.includes("result")) base += 3;
+      return Math.max(10, base);
+    }
+
+    function updateAgent(id, newState, logLine) {
+      const agent = state.timeline.find((item) => item.id === id);
+      if (!agent) return;
+      agent.state = newState;
+      if (logLine) agent.logs.push(logLine);
+      renderTimeline();
+    }
+
+    function renderTimeline() {
+      if (!state.timeline.length) {
+        els.timeline.innerHTML = AGENTS.map((agent) => timelineHtml({ ...agent, state: "idle", logs: ["No activity yet."] })).join("");
+      } else {
+        els.timeline.innerHTML = state.timeline.map((agent) => timelineHtml(agent)).join("");
+      }
+      els.negotiationBanner.classList.toggle("active", state.negotiation);
+    }
+
+    function timelineHtml(agent) {
+      return `<article class="timeline-item ${agent.state}">
+        <div class="timeline-head">
+          <div>
+            <div class="timeline-role">${escape(agent.role)}</div>
+            <h3>${escape(agent.title)}</h3>
+          </div>
+          <div class="state ${agent.state}">${escape(agent.state)}</div>
+        </div>
+        <p>${escape(agent.summary)}</p>
+        <div class="log">${(agent.logs.length ? agent.logs : ["No activity yet."]).map((line) => `<div>${escape(line)}</div>`).join("")}</div>
+      </article>`;
+    }
+
+    function renderArtifacts() {
+      els.logicMapBlock.textContent = state.logicMap || "No logic map yet.";
+      els.securityBlock.textContent = state.securityReview || "No audit yet.";
+      els.criticBlock.textContent = state.criticReview || "No parity review yet.";
+      els.modernCode.textContent = state.generatedCode || "Run the pipeline to generate output.";
+    }
+
+    function renderMetrics() {
+      const metrics = state.metrics.length ? state.metrics : [
+        metric("Technical Debt Reduced", "--", 0, "warn", "Generated after a run."),
+        metric("Logic Parity Score", "--", 0, "warn", "Generated after a run."),
+        metric("Security Compliance", "--", 0, "warn", "Generated after a run."),
+        metric("Cost Per Run", "--", 0, "ok", "Generated after a run."),
+        metric("Total Session Cost", "--", 0, "ok", "Generated after a run."),
+        metric("Estimated Tokens", "--", 0, "ok", "Generated after a run."),
+        metric("Test Pass Ratio", "--", 0, "warn", "Generated after a run."),
+        metric("Modernization Readiness", "--", 0, "warn", "Generated after a run.")
+      ];
+      els.metricsGrid.innerHTML = metrics.map((item) => `
+        <article class="metric-card">
+          <div class="label">${escape(item.label)}</div>
+          <div class="value ${item.tone}">${escape(item.value)}</div>
+          <div class="bar"><div style="width:${item.percent}%"></div></div>
+          <p>${escape(item.note)}</p>
+        </article>
+      `).join("");
+    }
+
+    function renderDeliverables() {
+      els.projectSummary.textContent = state.report || "Run the pipeline to generate the report summary.";
+      els.promptPack.textContent = state.promptPack || "Run the pipeline to generate the agent prompt pack.";
+    }
+
+    function resetOutputs() {
+      state.generatedCode = "";
+      state.logicMap = "";
+      state.securityReview = "";
+      state.criticReview = "";
+      state.metrics = [];
+      state.promptPack = "";
+      state.report = "";
+      state.lastTokens = 0;
+      state.lastCost = 0;
+      state.negotiation = false;
+      els.modernCode.textContent = "Run the pipeline to generate output.";
+      els.logicMapBlock.textContent = "No logic map yet.";
+      els.securityBlock.textContent = "No audit yet.";
+      els.criticBlock.textContent = "No parity review yet.";
+      els.outputStatus.textContent = "No output yet";
+    }
+
+    function fullReset() {
+      if (state.running) return;
+      resetOutputs();
+      state.timeline = [];
+      els.legacyCode.value = "";
+      els.detectedSource.textContent = "Not detected yet";
+      els.selectedSampleFile.textContent = "Not loaded";
+      els.inputStatus.textContent = "Waiting for source";
+      els.statusLine.textContent = "State reset. Load a sample or import/upload a local snippet or copy paste directly into the input field.";
+      renderTimeline();
+      renderMetrics();
+      renderDeliverables();
+    }
+
+    function updateStats() {
+      els.runsStat.textContent = String(state.runs);
+      els.modelStat.textContent = String(state.loadedModels.length);
+      els.sampleStat.textContent = String(SAMPLE_LIBRARY.length);
+    }
+
+    async function copyReport() {
+      const text = state.report || "Run the pipeline to generate a report summary first.";
+      try {
+        await navigator.clipboard.writeText(text);
+        els.statusLine.textContent = "Report summary copied to clipboard.";
+      } catch (_error) {
+        els.statusLine.textContent = "Clipboard copy failed. Copy from the Deliverables tab instead.";
+      }
+    }
+
+    function friendlySource(id) {
+      const match = SOURCE_OPTIONS.find((item) => item.id === id);
+      return match ? match.name : id;
+    }
+
+    function stringify(value) {
+      return typeof value === "string" ? value : JSON.stringify(value, null, 2);
+    }
+
+    function safe(value) {
+      return typeof value === "string" ? value : stringify(value);
+    }
+
+    function escape(value) {
+      return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    init();
+  </script>
+</body>
+</html>
